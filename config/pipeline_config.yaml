@@ -1,0 +1,109 @@
+# Reddit Energy Sentiment Pipeline Configuration
+reddit:
+  subreddits:
+    - teslamotors
+    - solar
+    - TeslaEnergy
+    - Powerwall
+    - electricvehicles
+    - renewable
+  post_limit: 100
+  fetch_interval_seconds: 300
+  retry_attempts: 3
+  backoff_factor: 2
+
+kafka:
+  topics:
+    raw_posts: reddit_raw_posts
+    processed_sentiment: reddit_sentiment_processed
+    alerts: reddit_alerts
+  partitions: 3
+  replication_factor: 1
+  batch_size: 100
+  linger_ms: 100
+  compression_type: gzip
+
+spark:
+  app_name: RedditSentimentStreaming
+  batch_interval_seconds: 5
+  checkpoint_dir: /tmp/spark-checkpoints
+  max_offsets_per_trigger: 1000
+  watermark_delay: 10 minutes
+  
+processing:
+  sentiment_model: vader  # Options: vader, textblob
+  anomaly_detection:
+    enabled: true
+    window_minutes: 60
+    std_deviation_threshold: 2.5
+  topics_extraction:
+    enabled: true
+    top_n: 10
+
+storage:
+  postgres:
+    connection_pool_size: 10
+    max_overflow: 20
+    pool_timeout: 30
+  s3:
+    enabled: false
+    bucket: reddit-pipeline-data
+    partition_format: year=%Y/month=%m/day=%d/hour=%H
+    file_format: parquet
+
+data_quality:
+  checks:
+    - name: schema_validation
+      enabled: true
+    - name: duplicate_detection
+      enabled: true
+    - name: data_freshness
+      enabled: true
+      threshold_minutes: 10
+    - name: completeness
+      enabled: true
+      required_fields:
+        - id
+        - title
+        - author
+        - created_utc
+        - subreddit
+  alert_on_failure: true
+
+airflow:
+  dags:
+    ingestion:
+      schedule: "*/5 * * * *"  # Every 5 minutes
+      retries: 3
+      retry_delay_minutes: 5
+    daily_analytics:
+      schedule: "0 1 * * *"  # Daily at 1 AM
+      retries: 2
+      retry_delay_minutes: 10
+    data_quality:
+      schedule: "0 */6 * * *"  # Every 6 hours
+      retries: 1
+      retry_delay_minutes: 5
+  sla:
+    ingestion_minutes: 10
+    processing_minutes: 15
+    quality_checks_minutes: 30
+
+monitoring:
+  metrics:
+    - pipeline_uptime
+    - data_freshness_seconds
+    - posts_processed_count
+    - sentiment_distribution
+    - error_rate
+    - processing_latency_ms
+  alerts:
+    - type: data_freshness
+      threshold_minutes: 10
+      severity: high
+    - type: negative_sentiment_spike
+      threshold: 0.5
+      severity: medium
+    - type: processing_error_rate
+      threshold: 0.05
+      severity: high

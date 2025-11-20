@@ -1,0 +1,173 @@
+# Reddit Energy Sentiment Pipeline - Tesla Interview Project
+# Project demonstrates real-time data engineering skills relevant to Tesla Energy's telemetry processing
+
+## Project Overview
+Build a data pipeline that analyzes Reddit discussions about renewable energy, electric vehicles, and Tesla to extract insights about public sentiment and technical discussions. This mirrors Tesla's need to process millions of Powerwall telemetry readings and extract actionable insights.
+
+## Why This Impresses Tesla
+- Shows you can handle both real-time streaming (like Powerwall telemetry) and batch processing (like daily installer quality scores)
+- Demonstrates data quality monitoring (critical for IoT device data)
+- Uses their tech stack: Airflow, Kafka, Spark
+- Shows you understand energy domain by analyzing energy-related discussions
+- Scalable architecture that could handle Tesla's million+ Powerwalls
+
+## Architecture Components to Implement
+
+### 1. Data Ingestion Layer
+Create a Python module that:
+- Uses PRAW (Python Reddit API Wrapper) to stream posts from r/teslamotors, r/solar, r/TeslaEnergy, r/Powerwall
+- Implements rate limiting and retry logic (shows you understand API constraints like Tesla's IoT devices)
+- Validates data schema on ingestion (critical for Tesla's heterogeneous device fleet)
+- Pushes raw data to Kafka topics partitioned by subreddit (demonstrates understanding of partitioning strategy)
+
+### 2. Stream Processing Layer (Real-time Path)
+Build Spark Streaming jobs that:
+- Consume from Kafka in micro-batches (5-second windows to simulate Powerwall's 5-minute intervals)
+- Perform real-time sentiment analysis on posts and comments
+- Detect anomalies (sudden spikes in negative sentiment about Powerwall issues)
+- Calculate rolling metrics: posts per minute, average sentiment, trending topics
+- Write results to PostgreSQL time-series tables for dashboarding
+- Send alerts to a monitoring queue when negative sentiment exceeds threshold
+
+### 3. Batch Processing Layer (Analytics Path)
+Create Airflow DAGs that:
+- Daily DAG: Aggregate all posts, calculate daily sentiment trends, identify top concerns
+- Weekly DAG: Generate installer quality proxy metrics (analyze posts mentioning installation experiences)
+- Data quality DAG: Run every 6 hours to check data completeness, schema compliance, duplicate detection
+- Backfill DAG: Reprocess historical data when sentiment model improves
+
+### 4. Data Storage Strategy
+Design schema for:
+- Raw data lake in S3 (partitioned by date/hour/subreddit)
+- Processed data in PostgreSQL with these tables:
+  - posts_raw (all Reddit data)
+  - sentiment_timeseries (minute-level aggregations)
+  - daily_metrics (rolled up analytics)
+  - data_quality_metrics (monitoring tables)
+- Include indexes on timestamp fields for time-range queries (critical for Tesla's time-series data)
+
+### 5. Data Quality & Monitoring
+Implement monitoring for:
+- Data freshness (alert if no data for 10 minutes - simulates Powerwall offline detection)
+- Schema validation (catch malformed JSON - common in IoT data)
+- Duplicate detection using post_id + timestamp combination
+- Coverage metrics (% of expected subreddits reporting)
+- Sentiment model drift detection
+
+### 6. Orchestration with Airflow
+Create these DAGs:
+- ingestion_dag: Manages Reddit API connection, handles failures
+- stream_processing_dag: Monitors Spark Streaming jobs, auto-restarts on failure
+- daily_analytics_dag: Runs aggregations, generates reports
+- data_quality_dag: Validates data, sends alerts
+- Use XComs to pass small metadata between tasks
+- Implement SLAs for critical paths
+
+### 7. Visualization Layer
+Create a simple dashboard showing:
+- Real-time sentiment gauge (like monitoring Powerwall state of charge)
+- Time-series plot of post volume (similar to power generation curves)
+- Top mentioned issues (helps identify product problems)
+- Data quality metrics panel
+
+## Key Technical Decisions to Highlight
+
+### Why Kafka?
+- Handles high throughput (Tesla processes millions of telemetry messages)
+- Built-in partitioning for parallel processing
+- Durability guarantees for critical data
+- Can replay messages for reprocessing
+
+### Why Spark for Stream Processing?
+- Unified batch and stream processing (exactly what Tesla needs)
+- Scales horizontally for growing data volumes
+- Rich ecosystem for ML integration
+- Checkpoint/recovery for fault tolerance
+
+### Why PostgreSQL + S3?
+- PostgreSQL for structured, queryable data with time-series optimization
+- S3 for raw data archival and data lake pattern
+- Cost-effective for different access patterns
+
+### Data Quality Focus
+- Every pipeline needs quality checks (Tesla emphasized "uncertain messy data")
+- Automated monitoring reduces manual intervention
+- Quality metrics help identify upstream issues quickly
+
+## Implementation Priority for Interview
+
+### Must Have (Implement these first):
+1. Basic Airflow DAG structure with error handling
+2. Kafka producer consuming Reddit API
+3. Simple Spark Streaming consumer
+4. PostgreSQL schema design
+5. One data quality check
+
+### Nice to Have (Mention in interview but don't implement):
+1. Complex sentiment analysis
+2. Full dashboard
+3. Advanced anomaly detection
+4. Cost optimization strategies
+
+## How to Explain This in Interview
+
+### Opening Statement:
+"I built a real-time data pipeline that processes Reddit discussions about renewable energy and Tesla products. This project demonstrates the same challenges Tesla faces with Powerwall telemetry: high-volume streaming data, quality concerns, real-time processing needs, and batch analytics."
+
+### Architecture Walkthrough:
+"Data flows from Reddit API through Kafka for durability and scalability. Spark Streaming processes in real-time for immediate insights, while Airflow orchestrates batch jobs for deeper analytics. This dual-path architecture mirrors how Tesla would handle real-time grid services while also computing daily installer metrics."
+
+### Scaling Discussion:
+"Currently processing 100K+ posts daily, but the architecture scales horizontally. Adding Kafka brokers and Spark workers would handle millions of messages - similar to Tesla's growing Powerwall fleet."
+
+### Data Quality Emphasis:
+"I implemented multiple quality gates because IoT data is inherently messy. Schema validation catches malformed data, deduplication prevents double-counting, and monitoring alerts on anomalies. This is critical when data drives operational decisions."
+
+### Tesla Connection:
+"This pipeline's challenges - handling streaming data, ensuring quality, scaling processing, orchestrating complex workflows - directly parallel Tesla Energy's needs for processing telemetry from millions of distributed devices."
+
+## Questions They Might Ask
+
+1. "How would you handle late-arriving data?"
+   - Watermarking in Spark Streaming, separate late-data processing path
+
+2. "What if Reddit API goes down?"
+   - Circuit breaker pattern, fallback to historical data, alerting
+
+3. "How do you ensure exactly-once processing?"
+   - Kafka transactions, Spark checkpointing, idempotent operations
+
+4. "How would you optimize costs?"
+   - Data lifecycle policies, columnar formats (Parquet), compute auto-scaling
+
+5. "How do you handle schema evolution?"
+   - Schema registry, backward compatibility checks, versioned processing
+
+## Files to Create
+
+1. docker-compose.yml - Local development environment
+2. airflow/dags/reddit_pipeline_dag.py - Main orchestration
+3. spark/streaming_job.py - Real-time processing
+4. kafka/producer.py - Reddit data ingestion
+5. sql/schema.sql - Database design
+6. monitoring/quality_checks.py - Data validation
+7. config/pipeline_config.yaml - Configuration management
+8. requirements.txt - Python dependencies
+9. README.md - Clear documentation
+
+## Environment Variables to Set
+- REDDIT_CLIENT_ID
+- REDDIT_CLIENT_SECRET
+- KAFKA_BOOTSTRAP_SERVERS
+- POSTGRES_CONNECTION_STRING
+- AWS_ACCESS_KEY_ID (if using S3)
+- AIRFLOW_HOME
+
+## Success Metrics to Track
+- Pipeline uptime (target 99.9% like Tesla's VPP requirements)
+- Data freshness (< 1 minute latency for streaming)
+- Quality score (> 95% passing validation)
+- Processing throughput (posts/second)
+- Cost per GB processed
+
+Remember: Focus on explaining the architecture decisions and how they relate to Tesla's challenges rather than showing every line of code. The interviewer wants to see you think like a Tesla engineer solving real problems.
