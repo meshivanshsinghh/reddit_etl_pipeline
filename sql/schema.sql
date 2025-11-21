@@ -4,6 +4,12 @@
 -- CREATE EXTENSION IF NOT EXISTS timescaledb;
 
 -- Drop existing tables (for development)
+DROP TABLE IF EXISTS alerts CASCADE;
+
+DROP TABLE IF EXISTS issue_clusters CASCADE;
+
+DROP TABLE IF EXISTS topics CASCADE;
+
 DROP TABLE IF EXISTS data_quality_metrics CASCADE;
 
 DROP TABLE IF EXISTS daily_metrics CASCADE;
@@ -27,7 +33,7 @@ CREATE TABLE posts_raw (
     upvote_ratio FLOAT,
     is_self BOOLEAN,
     link_flair_text VARCHAR(200),
-    raw_json JSONB, -- Store complete raw data
+    raw_json JSONB,
     ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     processed BOOLEAN DEFAULT FALSE
 );
@@ -58,7 +64,8 @@ CREATE TABLE sentiment_timeseries (
     top_keywords TEXT [],
     anomaly_detected BOOLEAN DEFAULT FALSE,
     anomaly_score FLOAT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (timestamp, subreddit) -- ✅ ADDED: Ensures one record per minute per subreddit
 );
 
 -- Create indexes for time-series queries
@@ -81,13 +88,13 @@ CREATE TABLE daily_metrics (
     total_posts INTEGER DEFAULT 0,
     avg_sentiment FLOAT,
     sentiment_std_dev FLOAT,
-    top_posts JSONB, -- Top 5 posts by score
-    trending_topics JSONB, -- Top 10 keywords/phrases
+    top_posts JSONB,
+    trending_topics JSONB,
     avg_comments_per_post FLOAT,
     avg_score FLOAT,
     engagement_rate FLOAT,
-    peak_hour INTEGER, -- Hour with most activity
-    quality_score FLOAT, -- Data quality metric
+    peak_hour INTEGER,
+    quality_score FLOAT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (date, subreddit)
 );
@@ -102,7 +109,7 @@ CREATE TABLE data_quality_metrics (
     id SERIAL PRIMARY KEY,
     check_timestamp TIMESTAMP NOT NULL,
     check_name VARCHAR(100) NOT NULL,
-    status VARCHAR(50) NOT NULL, -- PASSED, FAILED, WARNING
+    status VARCHAR(50) NOT NULL,
     metric_value FLOAT,
     threshold_value FLOAT,
     details JSONB,
@@ -255,7 +262,7 @@ CREATE TABLE issue_clusters (
     keywords TEXT [],
     avg_sentiment FLOAT,
     post_count INTEGER,
-    severity VARCHAR(20), -- LOW, MEDIUM, HIGH, CRITICAL
+    severity VARCHAR(20),
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -267,7 +274,7 @@ CREATE INDEX idx_clusters_created ON issue_clusters (created_at DESC);
 CREATE TABLE alerts (
     id SERIAL PRIMARY KEY,
     alert_type VARCHAR(50) NOT NULL,
-    severity VARCHAR(20) NOT NULL, -- LOW, MEDIUM, HIGH, CRITICAL
+    severity VARCHAR(20) NOT NULL,
     subreddit VARCHAR(100),
     message TEXT NOT NULL,
     metric_value FLOAT,

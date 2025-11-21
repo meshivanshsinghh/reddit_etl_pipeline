@@ -68,3 +68,7 @@ logs/
 # Temporary files
 tmp/
 temp/
+
+
+PROJECT_STATUS.md
+verify_pipeline.sh

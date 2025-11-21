@@ -233,27 +233,44 @@ class TopicExtractor:
         else:
             return 'LOW'
     
-    def save_keywords(self, subreddit_keywords: Dict[str, List[Tuple[str, float]]]):
-        """Save extracted keywords to database
+    def save_keywords(self, subreddit_keywords: Dict[str, List[Tuple[str, float]]], posts: List[Dict]):
+        """Save extracted keywords to database with actual post counts and sentiment
         
         Args:
             subreddit_keywords: Dictionary mapping subreddit to (keyword, score) tuples
+            posts: List of post dictionaries (to calculate counts and sentiment)
         """
         with self.conn.cursor() as cur:
             # Clear existing keywords
             cur.execute("DELETE FROM topics")
             
-            # Insert new keywords
+            # Insert new keywords with calculated counts and sentiment
             for subreddit, keywords in subreddit_keywords.items():
+                # Get posts for this subreddit
+                subreddit_posts = [p for p in posts if p['subreddit'] == subreddit]
+                
                 for keyword, score in keywords:
+                    # Find posts containing this keyword (case-insensitive)
+                    keyword_posts = [
+                        p for p in subreddit_posts 
+                        if keyword.lower() in p['text'].lower()
+                    ]
+                    
+                    # Calculate post count and average sentiment
+                    post_count = len(keyword_posts)
+                    if post_count > 0:
+                        avg_sentiment = np.mean([p['sentiment'] for p in keyword_posts])
+                    else:
+                        avg_sentiment = 0.0
+                    
                     cur.execute("""
                         INSERT INTO topics (subreddit, keyword, score, post_count, avg_sentiment)
                         VALUES (%s, %s, %s, %s, %s)
-                    """, (subreddit, keyword, score, 0, 0.0))  # Will update counts later
+                    """, (subreddit, keyword, score, post_count, float(avg_sentiment)))
             
             self.conn.commit()
             total_keywords = sum(len(kw) for kw in subreddit_keywords.values())
-            logger.info(f"Saved {total_keywords} keywords to database")
+            logger.info(f"Saved {total_keywords} keywords to database with counts and sentiment")
     
     def save_clusters(self, clusters: List[Dict]):
         """Save issue clusters to database
@@ -298,7 +315,7 @@ class TopicExtractor:
             # Step 2: Extract keywords by subreddit
             logger.info("Extracting keywords by subreddit")
             subreddit_keywords = self.extract_keywords_by_subreddit(posts, top_n=10)
-            self.save_keywords(subreddit_keywords)
+            self.save_keywords(subreddit_keywords, posts)
             
             # Step 3: Cluster all posts
             logger.info("Clustering posts to identify issues")

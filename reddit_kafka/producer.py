@@ -58,12 +58,20 @@ class RedditJSONProducer:
     def _load_subreddits(self) -> List[str]:
         """Load target subreddits from config"""
         return [
-            'teslamotors',
+            'TeslaMotors',
             'solar',
             'TeslaEnergy',
             'Powerwall',
             'electricvehicles',
-            'renewable'
+            'renewable',
+            'TeslaLounge',
+            'TeslaModel3',
+            'TeslaModelS',
+            'TeslaModelX',
+            'TeslaModelY',
+            'Superchargers',
+            'TeslaSupport',
+            'electriccars'
         ]
     
     def fetch_reddit_json(self, subreddit: str, limit: int = 50) -> List[Dict]:
@@ -81,9 +89,9 @@ class RedditJSONProducer:
         
         try:
             # Reddit's public JSON endpoint
-            url = f"https://www.reddit.com/r/{subreddit}/hot.json"
+            url = f"https://www.reddit.com/r/{subreddit}/new.json"
             headers = {'User-Agent': self.user_agent}
-            params = {'limit': min(limit, 100)}  # Reddit's max limit is 100
+            params = {'limit': min(limit, 100)}
             
             logger.info(f"Fetching posts from r/{subreddit}")
             response = requests.get(url, headers=headers, params=params, timeout=10)

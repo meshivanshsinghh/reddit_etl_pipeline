@@ -1,6 +1,7 @@
 import os
 import sys
 import psycopg2
+import psycopg2.extras
 from typing import List, Dict, Tuple
 import numpy as np
 from datetime import datetime, timedelta

@@ -227,7 +227,8 @@ with DAG(
     description='Extract topics and cluster issues from Reddit posts',
     start_date=days_ago(1),
     catchup=False,
-    schedule_interval=None,  # Manual trigger (can change to '@daily' for automated)
+    # Daily at 2 AM
+    schedule_interval='0 2 * * *',
     max_active_runs=1,
     tags=['reddit', 'analytics', 'ml', 'topic-extraction'],
 ) as dag:
