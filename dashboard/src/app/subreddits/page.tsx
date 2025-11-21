@@ -40,10 +40,7 @@ export default function SubredditsPage() {
     }
 
     fetchSubreddits();
-
-    // Auto-refresh every 60 seconds
-    const interval = setInterval(fetchSubreddits, 60000);
-    return () => clearInterval(interval);
+    // Auto-refresh disabled for better UX
   }, []);
 
   if (loading) {

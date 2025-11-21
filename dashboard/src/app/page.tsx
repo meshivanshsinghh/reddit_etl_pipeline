@@ -14,6 +14,7 @@ import {
   ThumbsDown,
   Minus,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { DashboardStats, SentimentTimelinePoint } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -66,10 +67,7 @@ export default function Home() {
     }
 
     fetchData();
-
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
+    // Auto-refresh disabled for better UX - user can manually refresh
   }, []);
 
   if (loading) {
@@ -113,39 +111,50 @@ export default function Home() {
   const subredditData = distribution?.subreddits?.slice(0, 10) || [];
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-8 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-4xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground mt-2">
-          Real-time sentiment analysis of Tesla Energy discussions on Reddit
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Overview</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Sentiment analysis across 14 Tesla communities
+          </p>
+        </div>
+        <Button
+          onClick={() => window.location.reload()}
+          variant="outline"
+          size="sm"
+        >
+          Refresh
+        </Button>
       </div>
 
       {/* Stats Grid */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Total Posts"
             value={stats.total_posts.toLocaleString()}
-            subtitle="Processed from 14 subreddits"
+            subtitle="from 14 subreddits"
             icon={MessageSquare}
           />
           <StatCard
-            title="Entity Extraction Rate"
+            title="Extraction Rate"
             value={`${stats.extraction_rate}%`}
-            subtitle="Products & issues identified"
+            subtitle="entities identified"
             icon={Target}
           />
           <StatCard
             title="Critical Alerts"
             value={stats.critical_alerts}
-            subtitle="Requiring immediate attention"
+            subtitle={
+              stats.critical_alerts > 0 ? "require attention" : "all clear"
+            }
             icon={AlertTriangle}
-            className={stats.critical_alerts > 0 ? "border-red-500" : ""}
+            className={stats.critical_alerts > 0 ? "border-red-500/50" : ""}
           />
           <StatCard
-            title="Average Sentiment"
+            title="Avg Sentiment"
             value={
               stats.avg_sentiment != null
                 ? Number(stats.avg_sentiment).toFixed(3)
@@ -153,10 +162,10 @@ export default function Home() {
             }
             subtitle={
               (Number(stats.avg_sentiment) || 0) > 0.2
-                ? "Positive trend"
+                ? "positive"
                 : (Number(stats.avg_sentiment) || 0) < 0
-                ? "Negative trend"
-                : "Neutral"
+                ? "negative"
+                : "neutral"
             }
             icon={TrendingUp}
           />
@@ -164,7 +173,7 @@ export default function Home() {
       )}
 
       {/* Main Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid gap-4 lg:grid-cols-2">
         {/* Sentiment Timeline */}
         <div className="lg:col-span-2">
           <SentimentTimeline data={timeline} />
@@ -173,7 +182,9 @@ export default function Home() {
         {/* Sentiment Distribution Pie */}
         <Card>
           <CardHeader>
-            <CardTitle>Sentiment Distribution</CardTitle>
+            <CardTitle className="text-base font-medium">
+              Sentiment Distribution
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
@@ -229,7 +240,9 @@ export default function Home() {
         {/* Posts by Subreddit */}
         <Card>
           <CardHeader>
-            <CardTitle>Top Subreddits</CardTitle>
+            <CardTitle className="text-base font-medium">
+              Top Subreddits
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
@@ -252,8 +265,8 @@ export default function Home() {
       </div>
 
       {/* Footer */}
-      <div className="text-center text-sm text-muted-foreground">
-        Dashboard updates automatically every 30 seconds
+      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground border-t pt-4">
+        <span>Last updated: {new Date().toLocaleTimeString()}</span>
       </div>
     </div>
   );

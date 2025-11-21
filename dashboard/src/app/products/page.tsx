@@ -31,10 +31,7 @@ export default function ProductsPage() {
     }
 
     fetchProducts();
-
-    // Auto-refresh every 60 seconds
-    const interval = setInterval(fetchProducts, 60000);
-    return () => clearInterval(interval);
+    // Auto-refresh disabled for better UX
   }, []);
 
   if (loading) {

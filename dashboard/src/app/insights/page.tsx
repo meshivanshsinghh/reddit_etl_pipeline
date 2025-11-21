@@ -55,10 +55,7 @@ export default function InsightsPage() {
     }
 
     fetchData();
-
-    // Auto-refresh every 2 minutes
-    const interval = setInterval(fetchData, 120000);
-    return () => clearInterval(interval);
+    // Auto-refresh disabled for better UX
   }, []);
 
   if (loading) {

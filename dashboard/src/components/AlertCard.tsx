@@ -29,7 +29,29 @@ export function AlertCard({ alert, onResolve }: AlertCardProps) {
     }
   };
 
-  const permalinks = alert.metadata?.permalinks || [];
+  // Get post links from metadata (they're stored as full URLs, permalinks, or just post_id)
+  let permalinks: string[] = [];
+  
+  if (alert.metadata?.post_links) {
+    // Case 1: Has full post_links array
+    permalinks = alert.metadata.post_links.map((link: string) => {
+      if (link.startsWith('http')) {
+        return link.replace(/^https?:\/\/(www\.)?reddit\.com/, '');
+      }
+      return link;
+    });
+  } else if (alert.metadata?.permalinks) {
+    // Case 2: Has permalinks array
+    permalinks = alert.metadata.permalinks;
+  } else if (alert.metadata?.post_id) {
+    // Case 3: Has single post_id (EXTREME_POST alerts)
+    permalinks = [`/r/${alert.subreddit}/comments/${alert.metadata.post_id}/`];
+  } else if (alert.metadata?.post_ids && Array.isArray(alert.metadata.post_ids)) {
+    // Case 4: Has post_ids array
+    permalinks = alert.metadata.post_ids.map((id: string) => 
+      `/r/${alert.subreddit}/comments/${id}/`
+    );
+  }
 
   return (
     <Card className={cn(
@@ -68,33 +90,53 @@ export function AlertCard({ alert, onResolve }: AlertCardProps) {
         </p>
         
         {alert.metric_value !== undefined && (
-          <div className="text-xs text-muted-foreground">
-            Metric Value: <span className="font-semibold">{alert.metric_value.toFixed(3)}</span>
+          <div className="text-xs text-muted-foreground bg-muted/50 rounded px-3 py-2">
+            Metric Value: <span className="font-semibold text-foreground">{Number(alert.metric_value).toFixed(3)}</span>
           </div>
         )}
 
         {permalinks.length > 0 && (
-          <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground">Source Posts:</p>
+          <div className="space-y-2 bg-blue-500/10 border-2 border-blue-500/30 rounded-lg p-4">
+            <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <ExternalLink className="w-4 h-4 text-blue-500" />
+              View Original Reddit Posts
+            </p>
             <div className="flex flex-wrap gap-2">
-              {permalinks.slice(0, 3).map((permalink, idx) => (
+              {permalinks.slice(0, 5).map((permalink, idx) => (
                 <a
                   key={idx}
                   href={`${REDDIT_BASE_URL}${permalink}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors shadow-sm"
                 >
-                  <ExternalLink className="w-3 h-3" />
-                  Post {idx + 1}
+                  <ExternalLink className="w-4 h-4" />
+                  Reddit Post {idx + 1}
                 </a>
               ))}
-              {permalinks.length > 3 && (
-                <span className="text-xs text-muted-foreground">
-                  +{permalinks.length - 3} more
+              {permalinks.length > 5 && (
+                <span className="inline-flex items-center px-4 py-2 text-sm font-medium text-muted-foreground bg-muted rounded-md">
+                  +{permalinks.length - 5} more posts
                 </span>
               )}
             </div>
+            {((alert.metadata?.post_titles && alert.metadata.post_titles.length > 0) || alert.metadata?.title) && (
+              <div className="mt-2 pt-2 border-t border-border">
+                <p className="text-xs text-muted-foreground font-medium mb-1">Post Title{alert.metadata?.post_titles?.length > 1 ? 's' : ''}:</p>
+                <ul className="space-y-1">
+                  {alert.metadata?.title && (
+                    <li className="text-xs text-foreground">
+                      • {alert.metadata.title}
+                    </li>
+                  )}
+                  {alert.metadata?.post_titles && alert.metadata.post_titles.slice(0, 3).map((title: string, idx: number) => (
+                    <li key={idx} className="text-xs text-foreground">
+                      • {title}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 

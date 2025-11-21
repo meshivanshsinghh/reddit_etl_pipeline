@@ -39,10 +39,7 @@ export default function AlertsPage() {
 
   useEffect(() => {
     fetchAlerts();
-    
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(fetchAlerts, 30000);
-    return () => clearInterval(interval);
+    // Auto-refresh disabled - data refreshes on filter change
   }, [severityFilter, showResolved]);
 
   const handleResolve = async (id: number) => {
@@ -204,7 +201,7 @@ export default function AlertsPage() {
 
       {/* Footer */}
       <div className="text-center text-sm text-muted-foreground">
-        Alerts update automatically every 30 seconds
+        💡 Alerts refresh automatically when you change filters or resolve an alert
       </div>
     </div>
   );
