@@ -4,6 +4,7 @@ services:
   # Zookeeper for Kafka coordination
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
+    platform: linux/amd64
     hostname: zookeeper
     container_name: zookeeper
     ports:
@@ -17,6 +18,7 @@ services:
   # Kafka broker
   kafka:
     image: confluentinc/cp-kafka:7.5.0
+    platform: linux/amd64
     hostname: kafka
     container_name: kafka
     depends_on:
@@ -42,6 +44,7 @@ services:
   # PostgreSQL database
   postgres:
     image: postgres:15-alpine
+    platform: linux/amd64
     container_name: postgres
     ports:
       - "5432:5432"
@@ -58,6 +61,7 @@ services:
   # Apache Airflow (webserver + scheduler)
   airflow-webserver:
     image: apache/airflow:2.7.3-python3.10
+    platform: linux/amd64
     container_name: airflow-webserver
     depends_on:
       - postgres
@@ -76,7 +80,7 @@ services:
       POSTGRES_PASSWORD: reddit_pass
     volumes:
       - ./airflow/dags:/opt/airflow/dags
-      - ./kafka:/opt/airflow/kafka
+      - ./reddit_kafka:/opt/airflow/reddit_kafka
       - ./monitoring:/opt/airflow/monitoring
       - ./utils:/opt/airflow/utils
       - ./config:/opt/airflow/config
@@ -84,7 +88,8 @@ services:
     ports:
       - "8080:8080"
     command: >
-      bash -c "airflow db init &&
+      bash -c "pip install --user --no-cache-dir kafka-python python-dotenv requests pyyaml jsonschema psycopg2-binary vaderSentiment &&
+               airflow db init &&
                airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true &&
                airflow webserver"
     networks:
@@ -92,6 +97,7 @@ services:
 
   airflow-scheduler:
     image: apache/airflow:2.7.3-python3.10
+    platform: linux/amd64
     container_name: airflow-scheduler
     depends_on:
       - airflow-webserver
@@ -109,54 +115,58 @@ services:
       POSTGRES_PASSWORD: reddit_pass
     volumes:
       - ./airflow/dags:/opt/airflow/dags
-      - ./kafka:/opt/airflow/kafka
+      - ./reddit_kafka:/opt/airflow/reddit_kafka
       - ./monitoring:/opt/airflow/monitoring
       - ./utils:/opt/airflow/utils
       - ./config:/opt/airflow/config
       - airflow_logs:/opt/airflow/logs
-    command: airflow scheduler
+    command: >
+      bash -c "pip install --user --no-cache-dir kafka-python python-dotenv requests pyyaml jsonschema psycopg2-binary vaderSentiment &&
+               airflow scheduler"
     networks:
       - reddit-pipeline
+  
+  # Spark Master (commented out - uncomment if needed)
+  # spark-master:
+  #   image: docker.io/bitnami/spark:3.5.3
+  #   platform: linux/amd64
+  #   container_name: spark-master
+  #   environment:
+  #     - SPARK_MODE=master
+  #     - SPARK_RPC_AUTHENTICATION_ENABLED=no
+  #     - SPARK_RPC_ENCRYPTION_ENABLED=no
+  #     - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+  #     - SPARK_SSL_ENABLED=no
+  #   ports:
+  #     - "8081:8080"
+  #     - "7077:7077"
+  #   volumes:
+  #     - ./spark:/opt/spark-apps
+  #     - ./config:/opt/spark-config
+  #   networks:
+  #     - reddit-pipeline
 
-  # Spark Master
-  spark-master:
-    image: bitnami/spark:3.5.0
-    container_name: spark-master
-    environment:
-      - SPARK_MODE=master
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-      - SPARK_SSL_ENABLED=no
-    ports:
-      - "8081:8080"
-      - "7077:7077"
-    volumes:
-      - ./spark:/opt/spark-apps
-      - ./config:/opt/spark-config
-    networks:
-      - reddit-pipeline
-
-  # Spark Worker
-  spark-worker:
-    image: bitnami/spark:3.5.0
-    container_name: spark-worker
-    depends_on:
-      - spark-master
-    environment:
-      - SPARK_MODE=worker
-      - SPARK_MASTER_URL=spark://spark-master:7077
-      - SPARK_WORKER_MEMORY=2G
-      - SPARK_WORKER_CORES=2
-      - SPARK_RPC_AUTHENTICATION_ENABLED=no
-      - SPARK_RPC_ENCRYPTION_ENABLED=no
-      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-      - SPARK_SSL_ENABLED=no
-    volumes:
-      - ./spark:/opt/spark-apps
-      - ./config:/opt/spark-config
-    networks:
-      - reddit-pipeline
+  # Spark Worker (commented out - uncomment if needed)
+  # spark-worker:
+  #   image: docker.io/bitnami/spark:3.5.3
+  #   platform: linux/amd64
+  #   container_name: spark-worker
+  #   depends_on:
+  #     - spark-master
+  #   environment:
+  #     - SPARK_MODE=worker
+  #     - SPARK_MASTER_URL=spark://spark-master:7077
+  #     - SPARK_WORKER_MEMORY=2G
+  #     - SPARK_WORKER_CORES=2
+  #     - SPARK_RPC_AUTHENTICATION_ENABLED=no
+  #     - SPARK_RPC_ENCRYPTION_ENABLED=no
+  #     - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+  #     - SPARK_SSL_ENABLED=no
+  #   volumes:
+  #     - ./spark:/opt/spark-apps
+  #     - ./config:/opt/spark-config
+  #   networks:
+  #     - reddit-pipeline
 
 networks:
   reddit-pipeline:

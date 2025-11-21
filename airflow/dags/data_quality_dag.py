@@ -11,7 +11,7 @@ from airflow.utils.dates import days_ago
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.getenv('AIRFLOW_HOME', '/opt/airflow'), 'monitoring'))
+sys.path.insert(0, os.getenv('AIRFLOW_HOME', '/opt/airflow'))
 
 default_args = {
     'owner': 'data-engineering',
@@ -75,9 +75,10 @@ with DAG(
     'data_quality_pipeline',
     default_args=default_args,
     description='Data quality monitoring and alerts',
-    schedule_interval='0 */6 * * *',  # Every 6 hours
     start_date=days_ago(1),
     catchup=False,
+    schedule_interval=None,
+    max_active_runs=1,
     tags=['reddit', 'quality', 'monitoring'],
 ) as dag:
     

@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
-from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.utils.dates import days_ago
 import json
 
@@ -23,11 +22,20 @@ default_args = {
 
 def compute_daily_metrics(**kwargs):
     """Compute daily aggregated metrics"""
+    import os
+    import psycopg2
+    
     execution_date = kwargs['execution_date']
     target_date = execution_date.date()
     
-    pg_hook = PostgresHook(postgres_conn_id='postgres_default')
-    conn = pg_hook.get_conn()
+    # Direct connection using environment variables
+    conn = psycopg2.connect(
+        host=os.getenv('POSTGRES_HOST', 'postgres'),
+        port=os.getenv('POSTGRES_PORT', '5432'),
+        database=os.getenv('POSTGRES_DB', 'reddit_pipeline'),
+        user=os.getenv('POSTGRES_USER', 'reddit_user'),
+        password=os.getenv('POSTGRES_PASSWORD', 'reddit_pass')
+    )
     cursor = conn.cursor()
     
     # Get all subreddits

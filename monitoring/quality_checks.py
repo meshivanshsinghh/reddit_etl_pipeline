@@ -3,6 +3,7 @@ Data Quality Checks for Reddit Pipeline
 Implements various quality checks for monitoring data health
 """
 
+import json
 import psycopg2
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
@@ -18,7 +19,7 @@ class DataQualityChecker:
     """
     
     def __init__(self, db_config: Dict):
-        """
+    """
         Initialize quality checker
         
         Args:
@@ -65,7 +66,7 @@ class DataQualityChecker:
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (
                 datetime.utcnow(), check_name, status, metric_value,
-                threshold, str(details) if details else None, error_message
+                threshold, json.dumps(details) if details else None, error_message
             ))
             self.conn.commit()
             cursor.close()
@@ -187,11 +188,18 @@ class DataQualityChecker:
             null_counts = {}
             
             for field in required_fields:
-                cursor.execute(f"""
-                    SELECT COUNT(*) 
-                    FROM posts_raw 
-                    WHERE {field} IS NULL OR {field} = ''
-                """)
+                if field == 'created_utc':
+                    cursor.execute(f"""
+                        SELECT COUNT(*) 
+                        FROM posts_raw 
+                        WHERE {field} IS NULL
+                    """)
+                else:
+                    cursor.execute(f"""
+                        SELECT COUNT(*) 
+                        FROM posts_raw 
+                        WHERE {field} IS NULL OR {field} = ''
+                    """)
                 count = cursor.fetchone()[0]
                 null_counts[field] = count
             
