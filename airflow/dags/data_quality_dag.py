@@ -56,12 +56,19 @@ def send_alert(**kwargs):
     print("DATA QUALITY ALERT")
     print("=" * 50)
     
-    for check_name, (passed, details) in results.items():
+    for check_name, check_result in results.items():
         if check_name == 'overall_passed':
             continue
-        status = "✓ PASSED" if passed else "✗ FAILED"
-        print(f"{check_name}: {status}")
-        print(f"  Details: {details}")
+        
+        # Check if it's a tuple (passed, details) or just an error
+        if isinstance(check_result, tuple):
+            passed, details = check_result
+            status = "✓ PASSED" if passed else "✗ FAILED"
+            print(f"{check_name}: {status}")
+            print(f"  Details: {details}")
+        else:
+            # Handle error case or other non-tuple results
+            print(f"{check_name}: {check_result}")
     
     print("=" * 50)
     

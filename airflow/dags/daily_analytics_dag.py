@@ -59,7 +59,7 @@ def compute_daily_metrics(**kwargs):
                 LEFT JOIN sentiment_timeseries s 
                     ON DATE_TRUNC('minute', p.created_utc) = s.timestamp
                     AND p.subreddit = s.subreddit
-                WHERE DATE(p.created_utc) = %s
+                WHERE DATE(p.ingested_at) = %s
                     AND p.subreddit = %s
             )
             SELECT 
@@ -86,7 +86,7 @@ def compute_daily_metrics(**kwargs):
                 FROM (
                     SELECT id, title, score, num_comments
                     FROM posts_raw
-                    WHERE DATE(created_utc) = %s AND subreddit = %s
+                    WHERE DATE(ingested_at) = %s AND subreddit = %s
                     ORDER BY score DESC
                     LIMIT 5
                 ) t

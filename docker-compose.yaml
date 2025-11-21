@@ -83,12 +83,13 @@ services:
       - ./reddit_kafka:/opt/airflow/reddit_kafka
       - ./monitoring:/opt/airflow/monitoring
       - ./utils:/opt/airflow/utils
+      - ./analytics:/opt/airflow/analytics
       - ./config:/opt/airflow/config
       - airflow_logs:/opt/airflow/logs
     ports:
       - "8080:8080"
     command: >
-      bash -c "pip install --user --no-cache-dir kafka-python python-dotenv requests pyyaml jsonschema psycopg2-binary vaderSentiment &&
+      bash -c "pip install --user --no-cache-dir kafka-python python-dotenv requests pyyaml jsonschema psycopg2-binary vaderSentiment scikit-learn scipy numpy pandas &&
                airflow db init &&
                airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com || true &&
                airflow webserver"
@@ -119,12 +120,26 @@ services:
       - ./monitoring:/opt/airflow/monitoring
       - ./utils:/opt/airflow/utils
       - ./config:/opt/airflow/config
+      - ./analytics:/opt/airflow/analytics
       - airflow_logs:/opt/airflow/logs
     command: >
-      bash -c "pip install --user --no-cache-dir kafka-python python-dotenv requests pyyaml jsonschema psycopg2-binary vaderSentiment &&
+      bash -c "pip install --user --no-cache-dir kafka-python python-dotenv requests pyyaml jsonschema psycopg2-binary vaderSentiment scikit-learn scipy numpy pandas &&
                airflow scheduler"
     networks:
       - reddit-pipeline
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    networks:
+      - reddit-pipeline
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
   
   # Spark Master (commented out - uncomment if needed)
   # spark-master:
@@ -173,5 +188,7 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
+  kafka_data:
   airflow_logs:
+  postgres_data:
+  pgadmin_data:

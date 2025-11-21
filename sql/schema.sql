@@ -5,8 +5,11 @@
 
 -- Drop existing tables (for development)
 DROP TABLE IF EXISTS data_quality_metrics CASCADE;
+
 DROP TABLE IF EXISTS daily_metrics CASCADE;
+
 DROP TABLE IF EXISTS sentiment_timeseries CASCADE;
+
 DROP TABLE IF EXISTS posts_raw CASCADE;
 
 -- Raw posts table - stores all ingested Reddit data
@@ -24,16 +27,21 @@ CREATE TABLE posts_raw (
     upvote_ratio FLOAT,
     is_self BOOLEAN,
     link_flair_text VARCHAR(200),
-    raw_json JSONB,  -- Store complete raw data
+    raw_json JSONB, -- Store complete raw data
     ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     processed BOOLEAN DEFAULT FALSE
 );
 
 -- Create indexes for time-series queries
-CREATE INDEX idx_posts_created_utc ON posts_raw(created_utc DESC);
-CREATE INDEX idx_posts_subreddit ON posts_raw(subreddit);
-CREATE INDEX idx_posts_ingested_at ON posts_raw(ingested_at DESC);
-CREATE INDEX idx_posts_processed ON posts_raw(processed) WHERE processed = FALSE;
+CREATE INDEX idx_posts_created_utc ON posts_raw (created_utc DESC);
+
+CREATE INDEX idx_posts_subreddit ON posts_raw (subreddit);
+
+CREATE INDEX idx_posts_ingested_at ON posts_raw (ingested_at DESC);
+
+CREATE INDEX idx_posts_processed ON posts_raw (processed)
+WHERE
+    processed = FALSE;
 
 -- Sentiment time-series table - stores minute-level aggregations
 CREATE TABLE sentiment_timeseries (
@@ -47,16 +55,20 @@ CREATE TABLE sentiment_timeseries (
     neutral_count INTEGER DEFAULT 0,
     avg_score FLOAT,
     total_comments INTEGER DEFAULT 0,
-    top_keywords TEXT[],
+    top_keywords TEXT [],
     anomaly_detected BOOLEAN DEFAULT FALSE,
     anomaly_score FLOAT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create indexes for time-series queries
-CREATE INDEX idx_sentiment_timestamp ON sentiment_timeseries(timestamp DESC);
-CREATE INDEX idx_sentiment_subreddit ON sentiment_timeseries(subreddit);
-CREATE INDEX idx_sentiment_anomaly ON sentiment_timeseries(anomaly_detected) WHERE anomaly_detected = TRUE;
+CREATE INDEX idx_sentiment_timestamp ON sentiment_timeseries (timestamp DESC);
+
+CREATE INDEX idx_sentiment_subreddit ON sentiment_timeseries (subreddit);
+
+CREATE INDEX idx_sentiment_anomaly ON sentiment_timeseries (anomaly_detected)
+WHERE
+    anomaly_detected = TRUE;
 
 -- Convert to TimescaleDB hypertable (if extension available)
 -- SELECT create_hypertable('sentiment_timeseries', 'timestamp', if_not_exists => TRUE);
@@ -69,27 +81,28 @@ CREATE TABLE daily_metrics (
     total_posts INTEGER DEFAULT 0,
     avg_sentiment FLOAT,
     sentiment_std_dev FLOAT,
-    top_posts JSONB,  -- Top 5 posts by score
-    trending_topics JSONB,  -- Top 10 keywords/phrases
+    top_posts JSONB, -- Top 5 posts by score
+    trending_topics JSONB, -- Top 10 keywords/phrases
     avg_comments_per_post FLOAT,
     avg_score FLOAT,
     engagement_rate FLOAT,
-    peak_hour INTEGER,  -- Hour with most activity
-    quality_score FLOAT,  -- Data quality metric
+    peak_hour INTEGER, -- Hour with most activity
+    quality_score FLOAT, -- Data quality metric
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(date, subreddit)
+    UNIQUE (date, subreddit)
 );
 
 -- Create indexes for daily queries
-CREATE INDEX idx_daily_date ON daily_metrics(date DESC);
-CREATE INDEX idx_daily_subreddit ON daily_metrics(subreddit);
+CREATE INDEX idx_daily_date ON daily_metrics (date DESC);
+
+CREATE INDEX idx_daily_subreddit ON daily_metrics (subreddit);
 
 -- Data quality metrics table - monitoring table
 CREATE TABLE data_quality_metrics (
     id SERIAL PRIMARY KEY,
     check_timestamp TIMESTAMP NOT NULL,
     check_name VARCHAR(100) NOT NULL,
-    status VARCHAR(50) NOT NULL,  -- PASSED, FAILED, WARNING
+    status VARCHAR(50) NOT NULL, -- PASSED, FAILED, WARNING
     metric_value FLOAT,
     threshold_value FLOAT,
     details JSONB,
@@ -98,13 +111,15 @@ CREATE TABLE data_quality_metrics (
 );
 
 -- Create indexes for monitoring queries
-CREATE INDEX idx_quality_timestamp ON data_quality_metrics(check_timestamp DESC);
-CREATE INDEX idx_quality_status ON data_quality_metrics(status);
-CREATE INDEX idx_quality_check_name ON data_quality_metrics(check_name);
+CREATE INDEX idx_quality_timestamp ON data_quality_metrics (check_timestamp DESC);
+
+CREATE INDEX idx_quality_status ON data_quality_metrics (status);
+
+CREATE INDEX idx_quality_check_name ON data_quality_metrics (check_name);
 
 -- View for real-time dashboard - last 24 hours sentiment
 CREATE OR REPLACE VIEW v_realtime_sentiment_24h AS
-SELECT 
+SELECT
     timestamp,
     subreddit,
     posts_count,
@@ -114,25 +129,29 @@ SELECT
     neutral_count,
     anomaly_detected
 FROM sentiment_timeseries
-WHERE timestamp >= NOW() - INTERVAL '24 hours'
+WHERE
+    timestamp >= NOW() - INTERVAL '24 hours'
 ORDER BY timestamp DESC;
 
 -- View for data quality dashboard
 CREATE OR REPLACE VIEW v_data_quality_summary AS
-SELECT 
+SELECT
     check_name,
     status,
     COUNT(*) as check_count,
     AVG(metric_value) as avg_metric,
     MAX(check_timestamp) as last_check
 FROM data_quality_metrics
-WHERE check_timestamp >= NOW() - INTERVAL '7 days'
-GROUP BY check_name, status
+WHERE
+    check_timestamp >= NOW() - INTERVAL '7 days'
+GROUP BY
+    check_name,
+    status
 ORDER BY check_name, status;
 
 -- View for top posts by subreddit (last 7 days)
 CREATE OR REPLACE VIEW v_top_posts_weekly AS
-SELECT 
+SELECT
     subreddit,
     title,
     author,
@@ -141,7 +160,8 @@ SELECT
     created_utc,
     url
 FROM posts_raw
-WHERE created_utc >= NOW() - INTERVAL '7 days'
+WHERE
+    created_utc >= NOW() - INTERVAL '7 days'
 ORDER BY score DESC
 LIMIT 100;
 
@@ -197,5 +217,74 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Insert initial data quality check
-INSERT INTO data_quality_metrics (check_timestamp, check_name, status, details)
-VALUES (NOW(), 'schema_initialization', 'PASSED', '{"message": "Database schema created successfully"}');
+INSERT INTO
+    data_quality_metrics (
+        check_timestamp,
+        check_name,
+        status,
+        details
+    )
+VALUES (
+        NOW(),
+        'schema_initialization',
+        'PASSED',
+        '{"message": "Database schema created successfully"}'
+    );
+
+-- Topic extraction table - stores keywords per subreddit
+CREATE TABLE topics (
+    id SERIAL PRIMARY KEY,
+    subreddit VARCHAR(100),
+    keyword VARCHAR(100),
+    score FLOAT,
+    post_count INTEGER,
+    avg_sentiment FLOAT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_topics_subreddit ON topics (subreddit);
+
+CREATE INDEX idx_topics_keyword ON topics (keyword);
+
+-- Issue clustering table - groups similar posts
+CREATE TABLE issue_clusters (
+    id SERIAL PRIMARY KEY,
+    cluster_id INTEGER,
+    cluster_name VARCHAR(200),
+    post_ids TEXT [],
+    keywords TEXT [],
+    avg_sentiment FLOAT,
+    post_count INTEGER,
+    severity VARCHAR(20), -- LOW, MEDIUM, HIGH, CRITICAL
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_clusters_severity ON issue_clusters (severity);
+
+CREATE INDEX idx_clusters_created ON issue_clusters (created_at DESC);
+
+-- Alerts table - stores anomaly detection alerts
+CREATE TABLE alerts (
+    id SERIAL PRIMARY KEY,
+    alert_type VARCHAR(50) NOT NULL,
+    severity VARCHAR(20) NOT NULL, -- LOW, MEDIUM, HIGH, CRITICAL
+    subreddit VARCHAR(100),
+    message TEXT NOT NULL,
+    metric_value FLOAT,
+    threshold FLOAT,
+    metadata JSONB,
+    detected_at TIMESTAMP DEFAULT NOW(),
+    resolved BOOLEAN DEFAULT FALSE,
+    resolved_at TIMESTAMP
+);
+
+-- Create indexes for alert queries
+CREATE INDEX idx_alerts_type ON alerts (alert_type);
+
+CREATE INDEX idx_alerts_severity ON alerts (severity);
+
+CREATE INDEX idx_alerts_detected ON alerts (detected_at DESC);
+
+CREATE INDEX idx_alerts_resolved ON alerts (resolved)
+WHERE
+    resolved = FALSE;

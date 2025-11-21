@@ -19,12 +19,6 @@ class DataQualityChecker:
     """
     
     def __init__(self, db_config: Dict):
-    """
-        Initialize quality checker
-        
-        Args:
-            db_config: Database connection configuration
-        """
         self.db_config = db_config
         self.conn = None
         
