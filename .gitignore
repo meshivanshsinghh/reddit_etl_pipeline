@@ -69,6 +69,13 @@ logs/
 tmp/
 temp/
 
+# Next.js Dashboard
+dashboard/.next/
+dashboard/out/
+dashboard/build/
+dashboard/.env*.local
+dashboard/node_modules/
+dashboard/*.tsbuildinfo
 
 PROJECT_STATUS.md
 verify_pipeline.sh
