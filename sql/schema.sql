@@ -18,7 +18,7 @@ DROP TABLE IF EXISTS sentiment_timeseries CASCADE;
 
 DROP TABLE IF EXISTS posts_raw CASCADE;
 
--- Raw posts table - stores all ingested Reddit data
+-- Raw posts table - stores all ingested Reddit data-- Raw posts table - stores all ingested Reddit data
 CREATE TABLE posts_raw (
     id VARCHAR(50) PRIMARY KEY,
     title TEXT NOT NULL,
@@ -35,7 +35,9 @@ CREATE TABLE posts_raw (
     link_flair_text VARCHAR(200),
     raw_json JSONB,
     ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    processed BOOLEAN DEFAULT FALSE
+    processed BOOLEAN DEFAULT FALSE,
+    entities JSONB,
+    primary_product VARCHAR(50)
 );
 
 -- Create indexes for time-series queries
@@ -48,6 +50,11 @@ CREATE INDEX idx_posts_ingested_at ON posts_raw (ingested_at DESC);
 CREATE INDEX idx_posts_processed ON posts_raw (processed)
 WHERE
     processed = FALSE;
+
+-- Entity extraction indexes
+CREATE INDEX idx_posts_entities ON posts_raw USING GIN (entities);
+
+CREATE INDEX idx_posts_primary_product ON posts_raw (primary_product);
 
 -- Sentiment time-series table - stores minute-level aggregations
 CREATE TABLE sentiment_timeseries (

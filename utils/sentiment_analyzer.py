@@ -1,6 +1,8 @@
 import os
+import json
 import psycopg2
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from utils.entity_extractor import TeslaEntityExtractor
 
 def analyze_post_sentiment(text: str) -> dict:
     """Analyze sentiment of text"""
@@ -32,6 +34,10 @@ def add_sentiment_to_posts():
         password=os.getenv('POSTGRES_PASSWORD', 'reddit_pass')
     )
     cursor = conn.cursor()
+    
+    # Initialize entity extractor
+    entity_extractor = TeslaEntityExtractor()
+    
     cursor.execute("""
         SELECT p.id, p.title, p.selftext, p.subreddit, p.created_utc
         FROM posts_raw p
@@ -55,12 +61,13 @@ def add_sentiment_to_posts():
             'neutral': 0
         }
     
-    print(f"Processing sentiment for {len(posts)} NEW posts...")
+    print(f"Processing sentiment and entity extraction for {len(posts)} NEW posts...")
     
     processed = 0
     positive = 0
     negative = 0
     neutral = 0
+    entities_extracted = 0
     
     for post_id, title, selftext, subreddit, created_utc in posts:
         # Combine title and selftext
@@ -68,6 +75,22 @@ def add_sentiment_to_posts():
         
         # Analyze sentiment
         sentiment = analyze_post_sentiment(combined_text)
+        
+        # Extract entities
+        entity_result = entity_extractor.analyze_text(combined_text)
+        entities_json = json.dumps(entity_result['entities'])
+        primary_product = entity_result['primary_product']
+        
+        # Update post with entities
+        cursor.execute("""
+            UPDATE posts_raw
+            SET entities = %s::jsonb,
+                primary_product = %s
+            WHERE id = %s
+        """, (entities_json, primary_product, post_id))
+        
+        if primary_product:
+            entities_extracted += 1
         
         # Insert into sentiment_timeseries (minute-level aggregation)
         created_minute = created_utc.replace(second=0, microsecond=0)
@@ -112,16 +135,20 @@ def add_sentiment_to_posts():
     cursor.close()
     conn.close()
     
-    print(f"\n✅ Sentiment Analysis Complete!")
-    print(f"   Positive: {positive} ({positive/len(posts)*100:.1f}%)")
-    print(f"   Negative: {negative} ({negative/len(posts)*100:.1f}%)")
-    print(f"   Neutral: {neutral} ({neutral/len(posts)*100:.1f}%)")
+    print(f"\n✅ Sentiment Analysis & Entity Extraction Complete!")
+    print(f"   Sentiment Breakdown:")
+    print(f"     Positive: {positive} ({positive/len(posts)*100:.1f}%)")
+    print(f"     Negative: {negative} ({negative/len(posts)*100:.1f}%)")
+    print(f"     Neutral: {neutral} ({neutral/len(posts)*100:.1f}%)")
+    print(f"   Entity Extraction:")
+    print(f"     Products identified in {entities_extracted} posts ({entities_extracted/len(posts)*100:.1f}%)")
     
     return {
         'total': len(posts),
         'positive': positive,
         'negative': negative,
-        'neutral': neutral
+        'neutral': neutral,
+        'entities_extracted': entities_extracted
     }
 
 

@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # Zookeeper for Kafka coordination
@@ -28,7 +28,7 @@ services:
       - "9101:9101"
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -37,7 +37,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_JMX_PORT: 9101
       KAFKA_JMX_HOSTNAME: localhost
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     networks:
       - reddit-pipeline
 
@@ -66,18 +66,22 @@ services:
     depends_on:
       - postgres
     environment:
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://reddit_user:reddit_pass@postgres:5432/reddit_pipeline
-      AIRFLOW__CORE__FERNET_KEY: 'fb9sKx7VDDvhqpKTqY9BoA6S2E3RqI5pBc8F8c6E8Y0='
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-      AIRFLOW__WEBSERVER__SECRET_KEY: 'your-secret-key-change-in-production'
-      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: reddit_pipeline
-      POSTGRES_USER: reddit_user
-      POSTGRES_PASSWORD: reddit_pass
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://reddit_user:reddit_pass@postgres:5432/reddit_pipeline
+      - AIRFLOW__CORE__FERNET_KEY=fb9sKx7VDDvhqpKTqY9BoA6S2E3RqI5pBc8F8c6E8Y0=
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__WEBSERVER__SECRET_KEY=your-secret-key-change-in-production
+      - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/dags
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=reddit_pipeline
+      - POSTGRES_USER=reddit_user
+      - POSTGRES_PASSWORD=reddit_pass
+      - GMAIL_USER=${GMAIL_USER}
+      - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
+      - ALERT_EMAIL_TO=${ALERT_EMAIL_TO}
+
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./reddit_kafka:/opt/airflow/reddit_kafka
@@ -103,17 +107,21 @@ services:
     depends_on:
       - airflow-webserver
     environment:
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://reddit_user:reddit_pass@postgres:5432/reddit_pipeline
-      AIRFLOW__CORE__FERNET_KEY: 'fb9sKx7VDDvhqpKTqY9BoA6S2E3RqI5pBc8F8c6E8Y0='
-      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: reddit_pipeline
-      POSTGRES_USER: reddit_user
-      POSTGRES_PASSWORD: reddit_pass
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://reddit_user:reddit_pass@postgres:5432/reddit_pipeline
+      - AIRFLOW__CORE__FERNET_KEY=fb9sKx7VDDvhqpKTqY9BoA6S2E3RqI5pBc8F8c6E8Y0=
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__CORE__DAGS_FOLDER=/opt/airflow/dags
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=reddit_pipeline
+      - POSTGRES_USER=reddit_user
+      - POSTGRES_PASSWORD=reddit_pass
+      - GMAIL_USER=${GMAIL_USER}
+      - GMAIL_APP_PASSWORD=${GMAIL_APP_PASSWORD}
+      - ALERT_EMAIL_TO=${ALERT_EMAIL_TO}
+
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./reddit_kafka:/opt/airflow/reddit_kafka
@@ -140,48 +148,6 @@ services:
       - reddit-pipeline
     volumes:
       - pgadmin_data:/var/lib/pgadmin
-  
-  # Spark Master (commented out - uncomment if needed)
-  # spark-master:
-  #   image: docker.io/bitnami/spark:3.5.3
-  #   platform: linux/amd64
-  #   container_name: spark-master
-  #   environment:
-  #     - SPARK_MODE=master
-  #     - SPARK_RPC_AUTHENTICATION_ENABLED=no
-  #     - SPARK_RPC_ENCRYPTION_ENABLED=no
-  #     - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-  #     - SPARK_SSL_ENABLED=no
-  #   ports:
-  #     - "8081:8080"
-  #     - "7077:7077"
-  #   volumes:
-  #     - ./spark:/opt/spark-apps
-  #     - ./config:/opt/spark-config
-  #   networks:
-  #     - reddit-pipeline
-
-  # Spark Worker (commented out - uncomment if needed)
-  # spark-worker:
-  #   image: docker.io/bitnami/spark:3.5.3
-  #   platform: linux/amd64
-  #   container_name: spark-worker
-  #   depends_on:
-  #     - spark-master
-  #   environment:
-  #     - SPARK_MODE=worker
-  #     - SPARK_MASTER_URL=spark://spark-master:7077
-  #     - SPARK_WORKER_MEMORY=2G
-  #     - SPARK_WORKER_CORES=2
-  #     - SPARK_RPC_AUTHENTICATION_ENABLED=no
-  #     - SPARK_RPC_ENCRYPTION_ENABLED=no
-  #     - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
-  #     - SPARK_SSL_ENABLED=no
-  #   volumes:
-  #     - ./spark:/opt/spark-apps
-  #     - ./config:/opt/spark-config
-  #   networks:
-  #     - reddit-pipeline
 
 networks:
   reddit-pipeline:

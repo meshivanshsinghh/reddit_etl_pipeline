@@ -231,6 +231,65 @@ def send_critical_alert(**kwargs):
     # if slack_webhook:
     #     send_slack_alert(slack_webhook, critical_alerts)
 
+def send_email_notifications(**kwargs):
+    """Send email alerts for critical/high severity anomalies"""
+    import psycopg2
+    import psycopg2.extras
+    from monitoring.email_alerter import EmailAlerter
+    
+    conn = psycopg2.connect(
+        host=os.getenv('POSTGRES_HOST', 'postgres'),
+        port=os.getenv('POSTGRES_PORT', '5432'),
+        database=os.getenv('POSTGRES_DB', 'reddit_pipeline'),
+        user=os.getenv('POSTGRES_USER', 'reddit_user'),
+        password=os.getenv('POSTGRES_PASSWORD', 'reddit_pass')
+    )
+    
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            # Get recent critical/high alerts that haven't been resolved
+            cur.execute("""
+                SELECT 
+                    alert_type,
+                    severity,
+                    subreddit,
+                    message,
+                    metric_value,
+                    threshold,
+                    metadata,
+                    detected_at
+                FROM alerts
+                WHERE detected_at > NOW() - INTERVAL '1 hour'
+                    AND severity IN ('CRITICAL', 'HIGH')
+                    AND resolved = FALSE
+                ORDER BY 
+                    CASE severity
+                        WHEN 'CRITICAL' THEN 1
+                        WHEN 'HIGH' THEN 2
+                    END,
+                    detected_at DESC
+            """)
+            alerts = cur.fetchall()
+        
+        if not alerts:
+            print("📧 No critical/high alerts to send via email")
+            return
+        
+        # Convert to list of dicts
+        alert_list = [dict(alert) for alert in alerts]
+        
+        print(f"📧 Sending email for {len(alert_list)} critical/high alerts...")
+        
+        # Send email
+        alerter = EmailAlerter()
+        alerter.send_alert(alert_list)
+        
+    except Exception as e:
+        print(f"❌ Error sending email notifications: {e}")
+        # Don't fail the pipeline if email fails
+        
+    finally:
+        conn.close()
 
 with DAG(
     'anomaly_detection_pipeline',
@@ -272,19 +331,27 @@ with DAG(
         provide_context=True,
     )
     
-    # Task 5: Send critical alert (only if critical alerts exist)
+    # Task 5: Send email notifications (NEW!)
+    email_alerts = PythonOperator(
+        task_id='send_email_notifications',
+        python_callable=send_email_notifications,
+        provide_context=True,
+        trigger_rule='none_failed',
+    )
+    
+    # Task 6: Send critical alert (legacy notification)
     send_alert = PythonOperator(
         task_id='send_critical_alert',
         python_callable=send_critical_alert,
         provide_context=True,
-        trigger_rule='none_failed',  # Run even if upstream task returns specific value
+        trigger_rule='none_failed',
     )
     
-    # Task 6: Success notification
+    # Task 7: Success notification
     success_notification = BashOperator(
         task_id='pipeline_complete',
         bash_command='echo "✅ Anomaly detection pipeline completed successfully!"',
     )
     
     # Dependencies
-    check_data >> detect_anomalies >> log_alerts >> check_critical >> send_alert >> success_notification
+    check_data >> detect_anomalies >> log_alerts >> check_critical >> [email_alerts, send_alert] >> success_notification

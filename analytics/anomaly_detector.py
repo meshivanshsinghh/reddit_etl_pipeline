@@ -82,6 +82,19 @@ class AnomalyDetector:
                 
                 direction = "negative" if sentiment < mean else "positive"
                 
+                post_query = """
+                    SELECT p.id, p.title, p.permalink
+                    FROM posts_raw p
+                    WHERE p.subreddit = %s
+                        AND DATE_TRUNC('minute', p.created_utc) = %s
+                    ORDER BY p.created_utc DESC
+                    LIMIT 5
+                """
+                cur_posts = self.conn.cursor()
+                cur_posts.execute(post_query, (subreddit, timestamp))
+                posts = cur_posts.fetchall()
+                cur_posts.close()
+
                 anomalies.append({
                     'alert_type': 'SENTIMENT_ANOMALY',
                     'severity': severity,
@@ -93,7 +106,10 @@ class AnomalyDetector:
                         'z_score': float(z_score),
                         'std_dev': float(std),
                         'post_count': post_count,
-                        'timestamp': str(timestamp)
+                        'timestamp': str(timestamp),
+                        'post_ids': [p[0] for p in posts],
+                        'post_titles': [p[1][:100] for p in posts],
+                        'post_links': [p[2] for p in posts]
                     }
                 })
         
@@ -206,17 +222,29 @@ class AnomalyDetector:
                 # Map cluster severity to alert severity
                 alert_severity = severity if severity in ['HIGH', 'CRITICAL'] else 'MEDIUM'
                 
+                cluster_post_query = """
+                    SELECT UNNEST(post_ids) as post_id
+                    FROM issue_clusters
+                    WHERE cluster_id = %s
+                    LIMIT 10
+                """
+                cur_cluster = self.conn.cursor()
+                cur_cluster.execute(cluster_post_query, (cluster_id,))
+                cluster_posts = [row[0] for row in cur_cluster.fetchall()]
+                cur_cluster.close()
+
                 anomalies.append({
                     'alert_type': 'KEYWORD_ANOMALY',
                     'severity': alert_severity,
-                    'subreddit': None,  # Cluster spans multiple subreddits
+                    'subreddit': None,
                     'message': f"Issue cluster '{cluster_name}' has negative sentiment ({sentiment:.3f}) across {post_count} posts",
                     'metric_value': float(sentiment),
                     'threshold': 0.0,
                     'metadata': {
                         'cluster_id': cluster_id,
                         'keywords': keywords,
-                        'post_count': post_count
+                        'post_count': post_count,
+                        'post_ids': cluster_posts
                     }
                 })
         
@@ -241,7 +269,8 @@ class AnomalyDetector:
             s.avg_sentiment,
             p.score,
             p.num_comments,
-            p.id
+            p.id,
+            p.permalink
         FROM posts_raw p
         JOIN sentiment_timeseries s 
             ON p.subreddit = s.subreddit
@@ -256,7 +285,7 @@ class AnomalyDetector:
             rows = cur.fetchall()
             
             for row in rows:
-                subreddit, title, sentiment, score, comments, post_id = row
+                subreddit, title, sentiment, score, comments, post_id, permalink = row
                 
                 # Determine severity based on engagement
                 if comments > 50 or score > 100:
@@ -277,13 +306,13 @@ class AnomalyDetector:
                         'post_id': post_id,
                         'score': score,
                         'comments': comments,
-                        'title': title[:200]
+                        'title': title[:200],
+                        'permalink': permalink
                     }
                 })
         
         logger.info(f"Found {len(anomalies)} extreme posts")
         return anomalies
-    
     def save_alerts(self, anomalies: List[Dict]):
         """Save detected anomalies to alerts table
         
