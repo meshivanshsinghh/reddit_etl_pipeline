@@ -74,17 +74,30 @@ class RedditJSONProducer:
             'electriccars'
         ]
     
-    def fetch_reddit_json(self, subreddit: str, limit: int = 50) -> List[Dict]:
+    # permalink filtering
+    def _build_permalink(self, permalink: str) -> str:
         """
-        Fetch posts using Reddit's public JSON API
+        Build a complete permalink URL
         
         Args:
-            subreddit: Name of the subreddit
-            limit: Maximum number of posts to fetch (max 100)
+            permalink: Reddit permalink (could be relative or absolute)
             
         Returns:
-            List of post dictionaries
+            Complete URL
         """
+        if not permalink:
+            return ''
+        
+        if permalink.startswith('http://') or permalink.startswith('https://'):
+            return permalink
+        
+        
+        if permalink.startswith('/'):
+            return f"https://reddit.com{permalink}"
+        
+        return f"https://reddit.com/{permalink}"
+        
+    def fetch_reddit_json(self, subreddit: str, limit: int = 50) -> List[Dict]:
         posts = []
         
         try:
@@ -115,7 +128,7 @@ class RedditJSONProducer:
                         'score': post_data.get('score', 0),
                         'num_comments': post_data.get('num_comments', 0),
                         'url': post_data.get('url', ''),
-                        'permalink': f"https://reddit.com{post_data.get('permalink', '')}",
+                        'permalink': self._build_permalink(post_data.get('permalink', '')),
                         'upvote_ratio': post_data.get('upvote_ratio', 0.0),
                         'is_self': post_data.get('is_self', False),
                         'link_flair_text': post_data.get('link_flair_text'),

@@ -84,8 +84,7 @@ with DAG(
     description='Data quality monitoring and alerts',
     start_date=days_ago(1),
     catchup=False,
-    # running it every hour
-    schedule_interval='0 * * * *',
+    schedule_interval = '0 * * * *',
     max_active_runs=1,
     tags=['reddit', 'quality', 'monitoring'],
 ) as dag:

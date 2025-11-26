@@ -42,8 +42,7 @@ with DAG(
     'sentiment_analysis_pipeline',
     default_args=default_args,
     description='Analyze sentiment of Reddit posts',
-    # running it every 15 minutes
-    schedule_interval='*/15 * * * *',
+    schedule_interval = '*/15 * * * *',
     start_date=days_ago(1),
     catchup=False,
     max_active_runs=1,

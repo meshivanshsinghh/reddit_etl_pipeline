@@ -110,10 +110,15 @@ class EmailAlerter:
                     title = metadata.get('post_titles', [])[i] if i < len(metadata.get('post_titles', [])) else 'View post'
                     html += f'<li><a href="https://reddit.com{link}" class="post-link">{title}</a></li>'
                 html += "</ul></p>"
+            
             elif metadata and 'post_id' in metadata:
                 # Single post (EXTREME_POST type)
                 post_title = metadata.get('title', 'View post')
-                html += f'<p><strong>Related Post:</strong> {post_title}</p>'
+                permalink = metadata.get('permalink', '')
+                if permalink:
+                    html += f'<p><strong>Related Post:</strong> <a href="https://reddit.com{permalink}" class="post-link">{post_title}</a></p>'
+                else:
+                    html += f'<p><strong>Related Post:</strong> {post_title}</p>'
             
             html += "</div>"
         
