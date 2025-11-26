@@ -182,8 +182,7 @@ with DAG(
     'reddit_ingestion_pipeline',
     default_args=default_args,
     description='Ingest Reddit posts and publish to Kafka',
-    # running every 10 minutes
-    schedule_interval='*/10 * * * *',
+    schedule_interval = '*/15 * * * *',
     start_date=days_ago(1),
     catchup=False,
     max_active_runs=1,

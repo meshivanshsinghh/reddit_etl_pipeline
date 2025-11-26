@@ -297,8 +297,7 @@ with DAG(
     description='Detect sentiment, volume, and content anomalies',
     start_date=days_ago(1),
     catchup=False,
-    # every hour at :30 minutes
-    schedule_interval='30 * * * *',
+    schedule_interval = '0 * * * *',
     max_active_runs=1,
     tags=['reddit', 'analytics', 'ml', 'anomaly-detection', 'monitoring'],
 ) as dag:

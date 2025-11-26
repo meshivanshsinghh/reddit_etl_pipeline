@@ -31,7 +31,7 @@ export default function RootLayout({
         <div className="flex min-h-screen">
           <Navigation />
           <main className="flex-1 overflow-auto">
-            {children}
+        {children}
           </main>
         </div>
       </body>
